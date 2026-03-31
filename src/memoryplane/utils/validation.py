@@ -17,13 +17,20 @@ def format_allowed_values(values: Iterable[str]) -> str:
     return ", ".join(values)
 
 
+def with_fix(message: str, fix: str) -> str:
+    return f"{message}. Fix: {fix}"
+
+
 def validate_choice(*, field_name: str, value: str, allowed: Iterable[str], code: str) -> None:
     allowed_values = tuple(allowed)
     if value in allowed_values:
         return
     raise InputValidationError(
         code,
-        f"Invalid {field_name} '{value}'. Allowed values: {format_allowed_values(allowed_values)}",
+        with_fix(
+            f"Invalid {field_name} '{value}'. Allowed values: {format_allowed_values(allowed_values)}",
+            f"choose one of: {format_allowed_values(allowed_values)}",
+        ),
     )
 
 
@@ -31,18 +38,24 @@ def validate_source(value: str) -> None:
     if ":" not in value:
         raise InputValidationError(
             "INVALID_SOURCE",
-            f"Invalid source '{value}'. Expected format kind:session_id where kind is one of: {format_allowed_values(SOURCE_KINDS)}",
+            with_fix(
+                f"Invalid source '{value}'. Expected format kind:session_id where kind is one of: {format_allowed_values(SOURCE_KINDS)}",
+                "use a value like chat:sess_001",
+            ),
         )
     kind, session_id = value.split(":", 1)
     if kind not in SOURCE_KINDS:
         raise InputValidationError(
             "INVALID_SOURCE_KIND",
-            f"Invalid source kind '{kind}'. Allowed values: {format_allowed_values(SOURCE_KINDS)}",
+            with_fix(
+                f"Invalid source kind '{kind}'. Allowed values: {format_allowed_values(SOURCE_KINDS)}",
+                f"use one of: {format_allowed_values(SOURCE_KINDS)}",
+            ),
         )
     if not session_id:
         raise InputValidationError(
             "INVALID_SOURCE",
-            "Source session_id cannot be empty. Expected format kind:session_id",
+            with_fix("Source session_id cannot be empty. Expected format kind:session_id", "use a value like chat:sess_001"),
         )
 
 
@@ -65,9 +78,15 @@ def validate_write_inputs(
     )
     validate_source(source)
     if dry_run and commit:
-        raise InputValidationError("INVALID_WRITE_MODE", "--dry-run and --commit cannot be used together")
+        raise InputValidationError(
+            "INVALID_WRITE_MODE",
+            with_fix("--dry-run and --commit cannot be used together", "pick one mode: proposal with --dry-run or immediate durable write with --commit"),
+        )
     if commit and durability != "durable":
-        raise InputValidationError("COMMIT_ONLY_FOR_DURABLE", "--commit can only be used with --durability durable")
+        raise InputValidationError(
+            "COMMIT_ONLY_FOR_DURABLE",
+            with_fix("--commit can only be used with --durability durable", "set --durability durable or remove --commit"),
+        )
 
 
 def validate_type_filters(types: list[str]) -> None:
@@ -83,4 +102,4 @@ def friendly_missing_fields_message(exc: TypeError) -> str:
     fields = sorted(set(re.findall(r"'([^']+)'", str(exc))))
     if not fields:
         return str(exc)
-    return f"Missing required fields: {', '.join(fields)}"
+    return with_fix(f"Missing required fields: {', '.join(fields)}", "add these fields to each batch item")

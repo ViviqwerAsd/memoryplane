@@ -46,8 +46,13 @@ class SearchService:
                 record["matched_terms"] = matched_terms
             results.append(record)
 
-        if sort_by == "timestamp":
+        if sort_by in {"timestamp", "time"}:
             results.sort(key=lambda item: (item["memory"]["timestamp"], item["score"]), reverse=True)
+        elif sort_by == "confidence":
+            results.sort(
+                key=lambda item: (item["memory"]["confidence"], item["score"], item["memory"]["timestamp"]),
+                reverse=True,
+            )
         else:
             results.sort(key=lambda item: (item["score"], item["memory"]["timestamp"]), reverse=True)
         return {

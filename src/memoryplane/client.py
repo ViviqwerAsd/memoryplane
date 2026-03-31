@@ -96,6 +96,7 @@ class MemoryPlaneClient:
         types: list[str] | None = None,
         after: str | None = None,
         before: str | None = None,
+        full: bool = False,
     ) -> dict[str, object]:
         return CatalogService(self.paths).list_memories(
             limit=limit,
@@ -104,6 +105,7 @@ class MemoryPlaneClient:
             types=types,
             after=after,
             before=before,
+            full=full,
         )
 
     def stats(self) -> dict[str, object]:

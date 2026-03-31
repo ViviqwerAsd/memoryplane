@@ -9,9 +9,15 @@ description: Use when working in the CLI-Memory repository and needing to create
 
 `memoryplane` is a local memory control plane. Treat the CLI as the source of truth for operations and prefer `--json` for any agent-facing usage.
 
-Run commands from the repository root: `/Users/vivi8n24/Desktop/Project/CLI-Memory`.
+Run commands from the repository root: `/Users/vivi8n24/Desktop/Project/memoryplane`.
 
-Default invocation:
+Preferred invocation:
+
+```bash
+memoryplane
+```
+
+Fallback invocation:
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m memoryplane.cli
@@ -39,8 +45,10 @@ Do not bypass `memoryplane` by editing `.memoryplane/` files directly unless the
 
 ## Core Rules
 
-- Prefer `--json` so downstream agents can parse stable envelopes.
-- Durable writes must be proposed first with `--dry-run`, then committed with `commit`.
+- Prefer `--json` or set `json=true` in `.memoryplane.conf` so downstream agents can parse stable envelopes.
+- Defaults resolve in this order: CLI flags, environment variables, `.memoryplane.conf`, built-in defaults.
+- `MEMORYPLANE_ROOT` can remove repeated `--root`.
+- Durable writes can use `--dry-run` then `commit`, or `--commit` for one-step durable writes.
 - Candidate files live in `.memoryplane/candidates/`.
 - Committed memories live in `.memoryplane/store/memories.jsonl`.
 - Readable projections live in `.memoryplane/projections/<space>/`.
@@ -72,6 +80,21 @@ Commit the returned `candidate_id`:
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m memoryplane.cli commit cand_xxx --root /tmp/memoryplane-demo --json
+```
+
+Or write and commit in one step:
+
+```bash
+memoryplane write \
+  --root /tmp/memoryplane-demo \
+  --type preference \
+  --space preference \
+  --entity user \
+  --content "User prefers concise answers" \
+  --source chat:sess_001 \
+  --durability durable \
+  --commit \
+  --json
 ```
 
 Search:
@@ -134,6 +157,8 @@ PYTHONPATH=src .venv/bin/python -m memoryplane.cli eval \
 
 ## Agent Guidance
 
+- `list` is compact by default. Use `--full` only when the full memory object is required.
+- `list --recent 1h|1d|7d` is the quickest way to see fresh writes.
 - For personalized or stateful work, search before answering.
 - For stable new observations, write a candidate instead of assuming memory changed.
 - Use `inspect` or read `.memoryplane/` only after the CLI result if you need debugging detail.

@@ -6,6 +6,7 @@ from typing import Any
 from memoryplane.models import MemoryRecord
 from memoryplane.paths import MemoryPlanePaths
 from memoryplane.storage import CandidateStore, CanonicalStore
+from memoryplane.utils.text import truncate_text
 
 
 class CatalogService:
@@ -23,6 +24,7 @@ class CatalogService:
         types: list[str] | None = None,
         after: str | None = None,
         before: str | None = None,
+        full: bool = False,
     ) -> dict[str, Any]:
         memories = [
             memory
@@ -30,9 +32,14 @@ class CatalogService:
             if self._matches_filters(memory, space=space, entity=entity, types=types, after=after, before=before)
         ]
         memories.sort(key=lambda memory: memory.timestamp, reverse=True)
+        if full:
+            results = [{"memory": memory.model_dump(mode="json")} for memory in memories[:limit]]
+        else:
+            results = [self._compact_record(memory) for memory in memories[:limit]]
         return {
             "limit": limit,
-            "results": [{"memory": memory.model_dump(mode="json")} for memory in memories[:limit]],
+            "mode": "full" if full else "compact",
+            "results": results,
         }
 
     def stats(self) -> dict[str, Any]:
@@ -86,3 +93,14 @@ class CatalogService:
         if before and memory.timestamp > before:
             return False
         return True
+
+    def _compact_record(self, memory: MemoryRecord) -> dict[str, Any]:
+        return {
+            "memory_id": memory.memory_id,
+            "type": memory.type,
+            "space": memory.space,
+            "entity": memory.entity,
+            "confidence": memory.confidence,
+            "timestamp": memory.timestamp,
+            "content_preview": truncate_text(memory.content, 50),
+        }

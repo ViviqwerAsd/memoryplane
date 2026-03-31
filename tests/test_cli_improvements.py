@@ -96,7 +96,9 @@ def test_write_batch_reports_missing_fields_clearly(tmp_path):
 
     assert result.exit_code == 0
     assert payload["data"]["results"][0]["ok"] is False
-    assert payload["data"]["results"][0]["error"]["message"] == "Missing required fields: durability, space"
+    assert payload["data"]["results"][0]["error"]["message"] == (
+        "Missing required fields: durability, space. Fix: add these fields to each batch item"
+    )
 
 
 def test_write_rejects_unknown_type_with_allowed_values(tmp_path):
@@ -169,7 +171,7 @@ def test_list_returns_committed_memories_with_filters(tmp_path):
     assert result.exit_code == 0
     assert payload["ok"] is True
     assert len(payload["data"]["results"]) == 1
-    assert payload["data"]["results"][0]["memory"]["space"] == "preference"
+    assert payload["data"]["results"][0]["space"] == "preference"
     assert "score" not in payload["data"]["results"][0]
 
 
