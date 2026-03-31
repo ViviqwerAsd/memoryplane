@@ -219,3 +219,29 @@ def test_errors_include_fix_suggestions(tmp_path):
     )
     invalid_payload = json.loads(invalid_type.stdout)
     assert "Fix:" in invalid_payload["errors"][0]["message"]
+
+
+def test_missing_required_option_includes_fix_suggestion():
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "write",
+            "--space",
+            "preference",
+            "--entity",
+            "user",
+            "--content",
+            "User prefers concise answers",
+            "--source",
+            "chat:sess_001",
+            "--durability",
+            "durable",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "Missing option '--type'" in result.output
+    assert "Fix:" in result.output

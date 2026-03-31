@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import csv
+import errno
 import json
+import os
 from pathlib import Path
+import sys
 from typing import Annotated
 
+import click
 import typer
 
 from memoryplane.config_runtime import resolve_json_output, resolve_root
@@ -31,7 +35,77 @@ from memoryplane.utils.validation import (
 from memoryplane.utils.text import parse_recent_to_after
 
 
-app = typer.Typer(add_completion=False)
+class AgentTyperGroup(typer.core.TyperGroup):
+    def _format_click_exception(self, exc: click.ClickException) -> str:
+        if isinstance(exc, click.MissingParameter):
+            param = exc.param
+            if param is not None and getattr(param, "opts", None):
+                target = f"{param.opts[0]} <value>"
+            elif param is not None and getattr(param, "name", None):
+                target = f"{param.name} <value>"
+            else:
+                target = "the missing required parameter"
+            return with_fix(exc.format_message(), f"provide {target} and rerun")
+        if isinstance(exc, click.NoSuchOption):
+            return with_fix(exc.format_message(), "run --help to inspect the supported options")
+        if isinstance(exc, click.BadParameter):
+            return with_fix(exc.format_message(), "check the parameter value and rerun")
+        return exc.format_message()
+
+    def main(
+        self,
+        args=None,
+        prog_name=None,
+        complete_var=None,
+        standalone_mode=True,
+        windows_expand_args=True,
+        **extra,
+    ):
+        if args is None:
+            args = sys.argv[1:]
+            if os.name == "nt" and windows_expand_args:
+                args = click.utils._expand_args(args)
+        else:
+            args = list(args)
+
+        if prog_name is None:
+            prog_name = click.core._detect_program_name()
+
+        self._main_shell_completion(extra, prog_name, complete_var)
+
+        try:
+            try:
+                with self.make_context(prog_name, args, **extra) as ctx:
+                    rv = self.invoke(ctx)
+                    if not standalone_mode:
+                        return rv
+                    ctx.exit()
+            except (EOFError, KeyboardInterrupt) as exc:
+                click.echo(file=sys.stderr)
+                raise click.Abort() from exc
+            except click.ClickException as exc:
+                if not standalone_mode:
+                    raise
+                click.echo(self._format_click_exception(exc), err=True)
+                sys.exit(exc.exit_code)
+            except OSError as exc:
+                if exc.errno == errno.EPIPE:
+                    sys.stdout = click.utils.PacifyFlushWrapper(sys.stdout)
+                    sys.stderr = click.utils.PacifyFlushWrapper(sys.stderr)
+                    sys.exit(1)
+                raise
+        except click.exceptions.Exit as exc:
+            if standalone_mode:
+                sys.exit(exc.exit_code)
+            return exc.exit_code
+        except click.Abort:
+            if not standalone_mode:
+                raise
+            click.echo("Aborted!", err=True)
+            sys.exit(1)
+
+
+app = typer.Typer(add_completion=False, cls=AgentTyperGroup)
 
 
 def _emit(command: str, *, data: dict | None = None, json_output: bool = False) -> None:
@@ -424,8 +498,6 @@ def write_batch(
         )
     if template:
         template_payload = _template_items()
-        if resolved_json:
-            _emit("write-batch", data={"template": template_payload}, json_output=True)
         typer.echo(json.dumps(template_payload, indent=2))
         raise typer.Exit(code=0)
     if csv_file is not None:

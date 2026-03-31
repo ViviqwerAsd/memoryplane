@@ -262,6 +262,12 @@ Run CSV batch:
 memoryplane write-batch --csv ./memories.csv --json
 ```
 
+Example CSV row:
+
+```text
+preference,preference,user,Likes Python,chat:csv_test,durable,0.95,false,true
+```
+
 CSV columns:
 
 - `type`

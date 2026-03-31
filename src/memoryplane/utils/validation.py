@@ -18,7 +18,8 @@ def format_allowed_values(values: Iterable[str]) -> str:
 
 
 def with_fix(message: str, fix: str) -> str:
-    return f"{message}. Fix: {fix}"
+    suffix = "" if message.endswith((".", "!", "?")) else "."
+    return f"{message}{suffix} Fix: {fix}"
 
 
 def validate_choice(*, field_name: str, value: str, allowed: Iterable[str], code: str) -> None:
